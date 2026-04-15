@@ -1,4 +1,3 @@
-const dotenv = require("dotenv").config;
 const jwt = require("jsonwebtoken");
 
 exports.authenticate = (req, res, next) => {
@@ -9,13 +8,11 @@ exports.authenticate = (req, res, next) => {
   }
 
   const token = authHeader.split(" ")[1];
-  console.log({msg: "token revived", token});
   try {
     const decode = jwt.verify(token, process.env.JWT_SECRET);
-    console.log({msg: "token verified", decode});
     req.user = decode;
     next();
   } catch (error) {
-    console.log({msg: "invalid token", error});
+    return res.send({msg:"invalid token", error});
   }
 };
