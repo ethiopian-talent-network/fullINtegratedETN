@@ -3,8 +3,13 @@
  * Centralized API base URL configuration using environment variables
  */
 
+import axios from 'axios';
+
 const envApiUrl = import.meta.env.VITE_API_BASE_URL;
-export const API_BASE_URL = envApiUrl;
+export const API_BASE_URL = envApiUrl ?? "";
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+});
 
 // Log the API base URL for debugging
 console.log("API Configuration:");

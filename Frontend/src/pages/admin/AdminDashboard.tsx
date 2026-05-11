@@ -58,6 +58,8 @@ export default function AdminDashboard() {
   const [receiptModal, setReceiptModal] = useState<any>(null);
   const [billingList, setBillingList] = useState<any[]>([]);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [actionBillingId, setActionBillingId] = useState<number | null>(null);
+  const [billingNote, setBillingNote] = useState<Record<number, string>>({});
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [roleFilter, setRoleFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -215,6 +217,23 @@ export default function AdminDashboard() {
       loadStats();
     } catch (e: any) { setError(e.message); }
     finally { setActionLicenseId(null); }
+  };
+
+  const handleBillingAction = async (id: number, action: "approve" | "reject") => {
+    setActionBillingId(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/billing/${id}/${action}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ admin_note: billingNote[id] || "" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setSuccess(data.message);
+      setBillingList(prev => prev.map(b => b.id === id ? { ...b, is_verified: action === "approve", approval_status: action === "approve" ? "approved" : "rejected" } : b));
+      loadStats();
+    } catch (e: any) { setError(e.message); }
+    finally { setActionBillingId(null); }
   };
 
   const openProfile = async (req: any) => {
@@ -683,7 +702,8 @@ export default function AdminDashboard() {
                         <th className={thCls}>Phone</th>
                         <th className={thCls}>Payout Method</th>
                         <th className={thCls}>Account</th>
-                        <th className={thCls}>Verified</th>
+                        <th className={thCls}>Status</th>
+                        <th className={thCls}>Actions</th>
                       </tr>
                     </thead>
                     <tbody className={`divide-y ${dm ? "divide-gray-800" : "divide-slate-100"}`}>
@@ -704,13 +724,67 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className={tdCls}>
-                            <p className="font-mono text-xs">{b.payout_method === "bank" ? b.bank_name : b.account_number}</p>
+                            <div>
+                              <p className="font-mono text-xs">{b.account_number}</p>
+                              {b.payout_method === "bank" && b.bank_name && (
+                                <p className={`text-xs ${muted}`}>{b.bank_name}</p>
+                              )}
+                            </div>
                           </td>
                           <td className={tdCls}>
-                            <span className={`inline-flex items-center gap-1 text-xs font-medium ${b.is_verified ? "text-emerald-600" : "text-amber-600"}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${b.is_verified ? "bg-emerald-500" : "bg-amber-500"}`} />
-                              {b.is_verified ? "Verified" : "Pending"}
-                            </span>
+                            <div className="space-y-1">
+                              <span className={`inline-flex items-center gap-1 text-xs font-medium ${
+                                b.approval_status === "approved" ? "text-emerald-600" :
+                                b.approval_status === "rejected" ? "text-red-600" :
+                                "text-amber-600"
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  b.approval_status === "approved" ? "bg-emerald-500" :
+                                  b.approval_status === "rejected" ? "bg-red-500" :
+                                  "bg-amber-500"
+                                }`} />
+                                {b.approval_status === "approved" ? "Verified" :
+                                 b.approval_status === "rejected" ? "Rejected" :
+                                 "Pending"}
+                              </span>
+                              {b.admin_note && (
+                                <p className={`text-xs italic ${muted}`}>"{b.admin_note}"</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className={tdCls}>
+                            {b.approval_status === "pending" ? (
+                              <div className="flex flex-col gap-2">
+                                <input
+                                  value={billingNote[b.id] || ""}
+                                  onChange={(e) => setBillingNote(n => ({ ...n, [b.id]: e.target.value }))}
+                                  placeholder="Note (optional)"
+                                  className={`w-full px-2 py-1 rounded text-xs border ${dm ? "bg-gray-800 border-gray-600 text-white" : "bg-white border-gray-300"}`}
+                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleBillingAction(b.id, "approve")}
+                                    disabled={actionBillingId === b.id}
+                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-emerald-500 hover:bg-emerald-600 text-white font-medium disabled:opacity-50"
+                                  >
+                                    {actionBillingId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                                    Verify
+                                  </button>
+                                  <button
+                                    onClick={() => handleBillingAction(b.id, "reject")}
+                                    disabled={actionBillingId === b.id}
+                                    className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-red-500 hover:bg-red-600 text-white font-medium disabled:opacity-50"
+                                  >
+                                    <XCircle className="w-3 h-3" />
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className={`text-xs ${muted}`}>
+                                {b.approval_status === "approved" ? "Verified" : "Rejected"}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}

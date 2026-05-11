@@ -49,15 +49,95 @@ export const initializePayment = async (
   return json;
 };
 
-// POST /api/payment/verify — verify Chapa transaction after redirect
-export const verifyPayment = async (tx_ref: string): Promise<{ message: string }> => {
-  const res = await fetch(`${API_BASE_URL}/api/payment/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tx_ref }),
-  });
+// GET /api/payment/verify — verify Chapa transaction after redirect
+export const verifyPayment = async (
+  tx_ref: string,
+): Promise<{ message: string }> => {
+  const res = await fetch(
+    `${API_BASE_URL}/api/payment/verify?tx_ref=${tx_ref}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || "Verification failed");
+  return json;
+};
+
+// POST /api/payment/submit-for-verification — employer submits payment for verification
+export const submitPaymentForVerification = async (
+  token: string,
+  data: {
+    job_id: number;
+    talent_id: number;
+    application_id: number;
+    amount: number;
+    currency?: string;
+    payment_method?: string;
+    transaction_id?: string;
+  },
+): Promise<{
+  message: string;
+  verification_id: number;
+  payment_id: number;
+  status: string;
+}> => {
+  const res = await fetch(
+    `${API_BASE_URL}/api/payment/submit-for-verification`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({
+        ...data,
+        currency: data.currency || "ETB",
+        payment_method: data.payment_method || "chapa",
+      }),
+    },
+  );
+  const json = await res.json();
+  if (!res.ok)
+    throw new Error(
+      json.message || "Failed to submit payment for verification",
+    );
+  return json;
+};
+
+// GET /api/applications/job/:jobId/by-status — get applications grouped by status
+export const getApplicationsByStatus = async (
+  token: string,
+  jobId: number,
+): Promise<{
+  message: string;
+  data: {
+    hired: any[];
+    payment_pending: any[];
+    shortlisted: any[];
+    accepted: any[];
+    pending: any[];
+    rejected: any[];
+    withdrawn: any[];
+  };
+  summary: {
+    total: number;
+    hired: number;
+    payment_pending: number;
+    shortlisted: number;
+    accepted: number;
+    pending: number;
+    rejected: number;
+    withdrawn: number;
+  };
+}> => {
+  const res = await fetch(
+    `${API_BASE_URL}/api/applications/job/${jobId}/by-status`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+  const json = await res.json();
+  if (!res.ok)
+    throw new Error(json.message || "Failed to fetch applications by status");
   return json;
 };
 
@@ -118,10 +198,14 @@ export const getOwnerPaymentsByTalent = async (
   token: string,
   talentId: number,
 ): Promise<{ payments: any[] }> => {
-  const res = await fetch(`${API_BASE_URL}/api/payment/owner/payments/${talentId}`, {
-    headers: authHeaders(token),
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/api/payment/owner/payments/${talentId}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message || "Failed to fetch talent payments");
+  if (!res.ok)
+    throw new Error(json.message || "Failed to fetch talent payments");
   return json;
 };

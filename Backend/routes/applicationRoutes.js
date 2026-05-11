@@ -6,7 +6,8 @@ const {
   submitApplication,
   getUserApplications,
   getApplicationDetails,
-  updateApplication
+  updateApplication,
+  getApplicationsByStatus,
 } = require('../controllers/applicationController');
 
 // Get job details for application page (includes token cost and user balance)
@@ -17,6 +18,9 @@ router.post('/job/:jobId/submit', authenticate, submitApplication);
 
 // Get user's applications
 router.get('/my', authenticate, getUserApplications);
+
+// Get applications by status for employer dashboard
+router.get('/job/:jobId/by-status', authenticate, getApplicationsByStatus);
 
 // Get specific application details
 router.get('/:applicationId', authenticate, getApplicationDetails);

@@ -15,19 +15,19 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
     }
 
     await connection.beginTransaction();
-    
+
     // Get employer_id from user_id
     const [employerRows] = await connection.query(
       "SELECT id FROM employers WHERE user_id = ?",
-      [user.id]
+      [user.id],
     );
-    
+
     if (employerRows.length === 0) {
       throw new Error("Employer profile not found");
     }
-    
+
     const employer_id = employerRows[0].id;
-    
+
     const [checkHiredTalent] = await connection.query(
       "SELECT talent_id FROM applications WHERE job_id = ? AND status IN ('shortlisted', 'hired')",
       [job_id],
@@ -66,7 +66,7 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
       first_name: user.company_name,
       last_name: "user",
       tx_ref,
-      callback_url: "http://localhost:5000/payment/verify",
+      callback_url: `http://localhost:5000/api/payment/verify`,
     });
 
     const checkout_url = chapaResponse?.data?.checkout_url;
@@ -139,37 +139,43 @@ exports.verfiyAndUpdateTransaction = async (tx_ref) => {
       [tx_ref],
     );
 
+    // Keep escrow as 'pending' until owner/admin approves
+    // Don't automatically set to 'funded' - wait for admin verification
     await connection.query(
-      "update escrow set status = 'funded' where treansaction_ref = ?",
+      "update escrow set status = 'pending_approval' where treansaction_ref = ?",
       [tx_ref],
     );
 
-    // Get talent_id and create a payment record for owner dashboard
+    // Create payment verification record for admin review
     const [escrowData] = await connection.query(
-      "SELECT talent_id, job_id, amount, currency FROM escrow WHERE treansaction_ref = ?",
-      [tx_ref]
+      "SELECT talent_id, job_id, amount, currency, employer_id FROM escrow WHERE treansaction_ref = ?",
+      [tx_ref],
     );
 
     if (escrowData.length > 0) {
-      const { talent_id, job_id, amount, currency } = escrowData[0];
-      
-      // Get talent user_id
-      const [talentData] = await connection.query(
-        "SELECT user_id FROM talents WHERE id = ?",
-        [talent_id]
-      );
+      const { talent_id, job_id, amount, currency, employer_id } =
+        escrowData[0];
 
-      if (talentData.length > 0) {
-        const user_id = talentData[0].user_id;
-        
-        // Create payment record for owner dashboard
-        await connection.query(
-          `INSERT INTO owner_payments (talent_id, user_id, job_id, amount, currency, transaction_id, status, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'completed', NOW())
-           ON DUPLICATE KEY UPDATE status = 'completed', updated_at = NOW()`,
-          [talent_id, user_id, job_id, amount, currency, tx_ref]
-        );
-      }
+      // Add job_id to payment object for redirect
+      payment.job_id = job_id;
+
+      // Create payment verification record
+      await connection.query(
+        `INSERT INTO payment_verifications
+         (payment_id, job_id, employer_id, talent_id, amount, currency, transaction_id, payment_method, payment_date, verification_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'pending')
+         ON DUPLICATE KEY UPDATE verification_status = 'pending'`,
+        [
+          payment.id,
+          job_id,
+          employer_id,
+          talent_id,
+          amount,
+          currency,
+          tx_ref,
+          payment.method,
+        ],
+      );
     }
 
     await connection.commit();

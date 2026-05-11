@@ -12,6 +12,8 @@ import {
   getApplicationsByJob,
   updateApplicationStatus,
 } from "../../api/employer/employerApi";
+import { useDarkMode } from "../../contexts/DarkModeContext";
+import ApplicationsByStatus from "../../components/payment/ApplicationsByStatus";
 
 interface Proposal {
   id: number;
@@ -41,6 +43,8 @@ interface Proposal {
 const ProposalsPage: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const { darkMode } = useDarkMode();
+  const [useNewView, setUseNewView] = useState(true);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +180,54 @@ const ProposalsPage: React.FC = () => {
     }
   };
 
+  // New view with status grouping
+  if (useNewView && jobId) {
+    return (
+      <div
+        className={`min-h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}
+      >
+        {/* Header */}
+        <div
+          className={`${darkMode ? "bg-gray-800" : "bg-white"} shadow-sm border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center">
+                <button
+                  onClick={() => navigate("/employer-dashboard")}
+                  className={`flex items-center ${darkMode ? "text-gray-400 hover:text-gray-300" : "text-gray-600 hover:text-gray-900"} mr-4`}
+                >
+                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  Back to Dashboard
+                </button>
+                <h1
+                  className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}
+                >
+                  Applications for Job #{jobId}
+                </h1>
+              </div>
+              <button
+                onClick={() => setUseNewView(false)}
+                className={`text-sm px-3 py-1 rounded ${darkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+              >
+                Classic View
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <ApplicationsByStatus
+            jobId={parseInt(jobId)}
+            darkMode={darkMode}
+            onRefresh={() => {}}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -270,7 +322,8 @@ const ProposalsPage: React.FC = () => {
                             />
                           ) : (
                             <span className="text-blue-600 font-semibold text-sm">
-                              {proposal.talent_name?.charAt(0).toUpperCase() || "?"}
+                              {proposal.talent_name?.charAt(0).toUpperCase() ||
+                                "?"}
                             </span>
                           )}
                         </div>
@@ -330,7 +383,9 @@ const ProposalsPage: React.FC = () => {
                           />
                         ) : (
                           <span className="text-blue-600 font-bold text-xl">
-                            {selectedProposal.talent_name?.charAt(0).toUpperCase() || "?"}
+                            {selectedProposal.talent_name
+                              ?.charAt(0)
+                              .toUpperCase() || "?"}
                           </span>
                         )}
                       </div>
@@ -599,31 +654,31 @@ const ProposalsPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex space-x-3 pt-4 border-t">
-                      <button
-                        onClick={handleAccept}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!selectedProposal}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={handleShortlist}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!selectedProposal}
-                      >
-                        Shortlist
-                      </button>
-                      <button
-                        onClick={handleReject}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!selectedProposal}
-                      >
-                        Reject
-                      </button>
-                    </div>
+                  {/* Action Buttons */}
+                  <div className="flex space-x-3 pt-4 border-t">
+                    <button
+                      onClick={handleAccept}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!selectedProposal}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={handleShortlist}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!selectedProposal}
+                    >
+                      Shortlist
+                    </button>
+                    <button
+                      onClick={handleReject}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!selectedProposal}
+                    >
+                      Reject
+                    </button>
                   </div>
                 </div>
               ) : (

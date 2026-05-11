@@ -19,6 +19,8 @@ import ApplyToJob from "./pages/ApplyToJob";
 import ProposalsPage from "./pages/employer/ProposalsPage";
 import AllProposalsPage from "./features/employer/components/ProposalsPage";
 import EscrowPaymentPage from "./pages/employer/EscrowPaymentPage";
+import PaymentPendingPage from "./pages/employer/PaymentPendingPage";
+import { WorkMessagesPage } from "./pages/WorkMessagesPage";
 import AgreementPage from "./pages/employer/AgreementPage";
 import Portfolio from "./pages/Portfolio";
 import NotificationsPage from "./pages/NotificationsPage";
@@ -183,6 +185,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/work-messages"
+                element={
+                  <ProtectedRoute allowedRoles={["talent", "employer"]}>
+                    <WorkMessagesPage />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected routes - Employer only */}
               <Route
@@ -238,6 +248,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={["employer"]}>
                     <EscrowPaymentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employer/payment-pending/:job_id"
+                element={
+                  <ProtectedRoute allowedRoles={["employer"]}>
+                    <PaymentPendingPage />
                   </ProtectedRoute>
                 }
               />

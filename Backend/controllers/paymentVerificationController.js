@@ -202,6 +202,15 @@ exports.verifyPayment = async (req, res) => {
       [owner_id, paymentRecord.payment_id]
     );
 
+    // CRITICAL: Update escrow status to 'funded' when payment is verified
+    // This connects the payment verification system with the hiring system
+    await connection.query(
+      `UPDATE escrow 
+       SET status = 'funded' 
+       WHERE job_id = ? AND talent_id = ? AND employer_id = ? AND status = 'pending'`,
+      [paymentRecord.job_id, paymentRecord.talent_id, paymentRecord.employer_id]
+    );
+
     // Log audit
     await connection.query(
       `INSERT INTO payment_verification_audit (verification_id, owner_id, action, old_status, new_status, notes, ip_address)
@@ -239,6 +248,56 @@ exports.verifyPayment = async (req, res) => {
         [
           talent[0].user_id,
           `Payment of ${paymentRecord.amount} ${paymentRecord.currency} has been verified and will be processed.`,
+        ]
+      );
+    }
+
+    // Automatically create hiring record after payment verification
+    const [applicationData] = await connection.query(
+      "SELECT id FROM applications WHERE job_id = ? AND talent_id = ? ORDER BY created_at DESC LIMIT 1",
+      [paymentRecord.job_id, paymentRecord.talent_id]
+    );
+    const application_id = applicationData.length > 0 ? applicationData[0].id : null;
+
+    // Create hiring record
+    await connection.query(
+      `INSERT INTO hirings (employer_id, talent_id, job_id, application_id, hired_at, status)
+       VALUES (?, ?, ?, ?, NOW(), 'active')
+       ON DUPLICATE KEY UPDATE status = 'active'`,
+      [paymentRecord.employer_id, paymentRecord.talent_id, paymentRecord.job_id, application_id]
+    );
+
+    // Update application status to hired if exists
+    if (application_id) {
+      await connection.query(
+        "UPDATE applications SET status = 'hired', updated_at = NOW() WHERE id = ?",
+        [application_id]
+      );
+    }
+
+    // Get job info for hiring notification
+    const [jobInfo] = await connection.query(
+      "SELECT title FROM jobs WHERE id = ?",
+      [paymentRecord.job_id]
+    );
+
+    const [employerInfo] = await connection.query(
+      `SELECT u.name, e.company_name FROM employers e 
+       JOIN users u ON e.user_id = u.id WHERE e.id = ?`,
+      [paymentRecord.employer_id]
+    );
+
+    if (talent.length > 0 && jobInfo.length > 0 && employerInfo.length > 0) {
+      const companyName = employerInfo[0].company_name || employerInfo[0].name;
+      
+      // Send hiring notification to talent
+      await connection.query(
+        `INSERT INTO notifications (user_id, type, title, message)
+         VALUES (?, 'hired', ?, ?)`,
+        [
+          talent[0].user_id,
+          "Congratulations! You've been hired!",
+          `${companyName} has hired you for "${jobInfo[0].title}". Payment has been verified and secured in escrow. You can now communicate directly with your employer.`
         ]
       );
     }

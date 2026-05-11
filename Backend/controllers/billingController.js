@@ -6,7 +6,7 @@ exports.getBilling = async (req, res) => {
 
   try {
     const [billings] = await db.query(
-      `SELECT 
+      `SELECT
         id,
         user_id,
         phone,
@@ -21,7 +21,7 @@ exports.getBilling = async (req, res) => {
        FROM billing
        WHERE user_id = ?
        LIMIT 1`,
-      [user_id]
+      [user_id],
     );
 
     if (billings.length === 0) {
@@ -41,41 +41,77 @@ exports.submitBilling = async (req, res) => {
   const { phone, payout_method, account_number, bank_name } = req.body;
 
   try {
-    console.log("Submitting billing for user:", user_id, { phone, payout_method, account_number, bank_name });
+    console.log("Submitting billing for user:", user_id, {
+      phone,
+      payout_method,
+      account_number,
+      bank_name,
+    });
 
     // Validate required fields
     if (!phone || !payout_method) {
-      return res.status(400).json({ message: "Phone and payout method are required" });
+      return res
+        .status(400)
+        .json({ message: "Phone and payout method are required" });
     }
 
     if (payout_method === "bank" && (!account_number || !bank_name)) {
-      return res.status(400).json({ message: "Account number and bank name required for bank transfers" });
+      return res.status(400).json({
+        message: "Account number and bank name required for bank transfers",
+      });
     }
 
     // Check if billing already exists
     const [existing] = await db.query(
       "SELECT id FROM billing WHERE user_id = ?",
-      [user_id]
+      [user_id],
     );
+
+    // Get user's name and email for the billing record
+    const [user] = await db.query(
+      "SELECT name, email FROM users WHERE id = ?",
+      [user_id],
+    );
+
+    const full_name = user[0]?.name || "Unknown";
+    const email = user[0]?.email || "";
 
     if (existing.length > 0) {
       // Update existing
       await db.query(
-        `UPDATE billing 
-         SET phone = ?, payout_method = ?, account_number = ?, bank_name = ?, is_verified = FALSE, approval_status = 'pending', updated_at = NOW()
+        `UPDATE billing
+         SET phone = ?, payout_method = ?, account_number = ?, bank_name = ?, full_name = ?, email = ?, is_verified = FALSE, approval_status = 'pending', updated_at = NOW()
          WHERE user_id = ?`,
-        [phone, payout_method, account_number || null, bank_name || null, user_id]
+        [
+          phone,
+          payout_method,
+          account_number || null,
+          bank_name || null,
+          full_name,
+          email,
+          user_id,
+        ],
       );
     } else {
       // Create new
       await db.query(
-        `INSERT INTO billing (user_id, phone, payout_method, account_number, bank_name, is_verified, approval_status)
-         VALUES (?, ?, ?, ?, ?, FALSE, 'pending')`,
-        [user_id, phone, payout_method, account_number || null, bank_name || null]
+        `INSERT INTO billing (user_id, phone, payout_method, account_number, bank_name, full_name, email, is_verified, approval_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, 'pending')`,
+        [
+          user_id,
+          phone,
+          payout_method,
+          account_number || null,
+          bank_name || null,
+          full_name,
+          email,
+        ],
       );
     }
 
-    return res.status(200).json({ message: "Billing information submitted for verification" });
+    return res
+      .status(200)
+      .json({ message: "Billing information submitted for verification" });
   } catch (error) {
     console.error("Error in submitBilling:", error);
     return res.status(500).json({ message: error.message });
@@ -87,10 +123,7 @@ exports.deleteBilling = async (req, res) => {
   const user_id = req.user.id;
 
   try {
-    await db.query(
-      "DELETE FROM billing WHERE user_id = ?",
-      [user_id]
-    );
+    await db.query("DELETE FROM billing WHERE user_id = ?", [user_id]);
 
     return res.status(200).json({ message: "Billing information deleted" });
   } catch (error) {
@@ -105,7 +138,7 @@ exports.getTalentBillingStatus = async (req, res) => {
 
   try {
     const [billings] = await db.query(
-      `SELECT 
+      `SELECT
         id,
         phone,
         payout_method,
@@ -119,7 +152,7 @@ exports.getTalentBillingStatus = async (req, res) => {
        FROM billing
        WHERE user_id = ?
        LIMIT 1`,
-      [user_id]
+      [user_id],
     );
 
     if (billings.length === 0) {
@@ -137,7 +170,7 @@ exports.getTalentBillingStatus = async (req, res) => {
 exports.getPendingBillingApprovals = async (req, res) => {
   try {
     const [billings] = await db.query(
-      `SELECT 
+      `SELECT
         b.id,
         b.user_id,
         b.phone,
@@ -152,7 +185,7 @@ exports.getPendingBillingApprovals = async (req, res) => {
        FROM billing b
        JOIN users u ON b.user_id = u.id
        WHERE b.is_verified = FALSE
-       ORDER BY b.created_at DESC`
+       ORDER BY b.created_at DESC`,
     );
 
     return res.status(200).json({ billings });
@@ -166,7 +199,7 @@ exports.getPendingBillingApprovals = async (req, res) => {
 exports.getAllBilling = async (req, res) => {
   try {
     const [billings] = await db.query(
-      `SELECT 
+      `SELECT
         b.id,
         b.user_id,
         b.phone,
@@ -180,7 +213,7 @@ exports.getAllBilling = async (req, res) => {
         u.email as user_email
        FROM billing b
        JOIN users u ON b.user_id = u.id
-       ORDER BY b.is_verified ASC, b.created_at DESC`
+       ORDER BY b.is_verified ASC, b.created_at DESC`,
     );
 
     return res.status(200).json({ billing: billings });
@@ -203,7 +236,7 @@ exports.approveBilling = async (req, res) => {
     // Get billing record
     const [billings] = await connection.query(
       "SELECT * FROM billing WHERE id = ? FOR UPDATE",
-      [billingId]
+      [billingId],
     );
 
     if (billings.length === 0) {
@@ -215,14 +248,14 @@ exports.approveBilling = async (req, res) => {
 
     // Update billing - verify
     await connection.query(
-      `UPDATE billing 
+      `UPDATE billing
        SET is_verified = TRUE,
            approval_status = 'approved',
            admin_note = ?,
            approved_by = ?,
            approved_at = NOW()
        WHERE id = ?`,
-      [admin_note || null, admin_id, billingId]
+      [admin_note || null, admin_id, billingId],
     );
 
     // Notify talent
@@ -233,11 +266,13 @@ exports.approveBilling = async (req, res) => {
         billing.user_id,
         "Billing Information Verified",
         "Your billing information has been verified. You can now receive payouts.",
-      ]
+      ],
     );
 
     await connection.commit();
-    return res.status(200).json({ message: "Billing information verified successfully" });
+    return res
+      .status(200)
+      .json({ message: "Billing information verified successfully" });
   } catch (error) {
     await connection.rollback();
     console.error("Error in approveBilling:", error);
@@ -260,7 +295,7 @@ exports.rejectBilling = async (req, res) => {
     // Get billing record
     const [billings] = await connection.query(
       "SELECT * FROM billing WHERE id = ? FOR UPDATE",
-      [billingId]
+      [billingId],
     );
 
     if (billings.length === 0) {
@@ -272,14 +307,14 @@ exports.rejectBilling = async (req, res) => {
 
     // Update billing - reject
     await connection.query(
-      `UPDATE billing 
+      `UPDATE billing
        SET is_verified = FALSE,
            approval_status = 'rejected',
            admin_note = ?,
            approved_by = ?,
            approved_at = NOW()
        WHERE id = ?`,
-      [admin_note || "Rejected by admin", admin_id, billingId]
+      [admin_note || "Rejected by admin", admin_id, billingId],
     );
 
     // Notify talent
@@ -290,11 +325,13 @@ exports.rejectBilling = async (req, res) => {
         billing.user_id,
         "Billing Information Rejected",
         `Your billing information was rejected. Reason: ${admin_note || "Please update your information and resubmit."}`,
-      ]
+      ],
     );
 
     await connection.commit();
-    return res.status(200).json({ message: "Billing information rejected successfully" });
+    return res
+      .status(200)
+      .json({ message: "Billing information rejected successfully" });
   } catch (error) {
     await connection.rollback();
     console.error("Error in rejectBilling:", error);

@@ -79,6 +79,8 @@ app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/payment-verification", require("./routes/paymentVerificationRoutes"));
 app.use("/api/agreements", require("./routes/agreementRoutes"));
+app.use("/api/hiring", require("./routes/hiringRoutes"));
+app.use("/api/work-messages", require("./routes/employerTalentMessageRoutes"));
 // Specific routes must come before general routes
 app.use("/api/owner/payouts", require("./routes/payoutsRoutes"));
 app.use("/api/owner", require("./routes/ownerRoutes"));

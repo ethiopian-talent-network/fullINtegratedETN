@@ -165,24 +165,24 @@ exports.submitApplication = async (req, res) => {
       // Create notification for employer
       const [jobEmployer] = await connection.query(
         "SELECT j.employer_id, e.user_id FROM jobs j JOIN employers e ON j.employer_id = e.id WHERE j.id = ?",
-        [jobId]
+        [jobId],
       );
-      
+
       if (jobEmployer.length > 0) {
         const [talentUser] = await connection.query(
           "SELECT u.name FROM talents t JOIN users u ON t.user_id = u.id WHERE t.id = ?",
-          [talentId]
+          [talentId],
         );
-        
+
         await connection.query(
           `INSERT INTO notifications (user_id, type, title, message, sender_user_id)
            VALUES (?, 'new_application', ?, ?, ?)`,
           [
             jobEmployer[0].user_id,
-            'New Job Application',
-            `${talentUser[0]?.name || 'A talent'} applied for "${jobDetails.title}"`,
-            req.user.id
-          ]
+            "New Job Application",
+            `${talentUser[0]?.name || "A talent"} applied for "${jobDetails.title}"`,
+            req.user.id,
+          ],
         );
       }
 
@@ -312,6 +312,89 @@ exports.getApplicationDetails = async (req, res) => {
     res.status(500).json({
       message: "Error fetching application details",
       error: error.message,
+    });
+  }
+};
+
+// Get applications grouped by status for employer dashboard
+exports.getApplicationsByStatus = async (req, res) => {
+  const { jobId } = req.params;
+  const userId = req.user.id;
+  try {
+    // Get the employer ID from the employers table using the user ID
+    const [employerRow] = await db.query(
+      "SELECT id FROM employers WHERE user_id = ?",
+      [userId],
+    );
+
+    if (employerRow.length === 0) {
+      return res.status(404).json({ message: "Employer profile not found" });
+    }
+
+    const employerId = employerRow[0].id;
+
+    // Get all applications for the job grouped by status
+    const [applications] = await db.query(
+      `SELECT a.id AS applicationID, a.status, a.applied_at,
+              p.id AS proposal_id, p.cover_letter, p.proposal, p.tokens_used,
+              u.name, u.email, u.profile_image,
+              t.id AS talent_id,
+              j.title as job_title
+       FROM applications a
+       LEFT JOIN talents t ON a.talent_id = t.id
+       LEFT JOIN users u ON t.user_id = u.id
+       JOIN jobs j ON a.job_id = j.id
+       LEFT JOIN proposals p ON a.id = p.application_id
+       WHERE a.job_id = ? AND j.employer_id = ?
+       ORDER BY
+         CASE a.status
+           WHEN 'hired' THEN 1
+           WHEN 'payment_pending' THEN 2
+           WHEN 'shortlisted' THEN 3
+           WHEN 'accepted' THEN 4
+           WHEN 'pending' THEN 5
+           ELSE 6
+         END,
+         a.applied_at DESC`,
+      [jobId, employerId],
+    );
+
+    // Group applications by status
+    const grouped = {
+      hired: [],
+      payment_pending: [],
+      shortlisted: [],
+      accepted: [],
+      pending: [],
+      rejected: [],
+      withdrawn: [],
+    };
+
+    applications.forEach((app) => {
+      if (grouped[app.status]) {
+        grouped[app.status].push(app);
+      }
+    });
+
+    return res.status(200).json({
+      message: "Applications retrieved successfully",
+      data: grouped,
+      summary: {
+        total: applications.length,
+        hired: grouped.hired.length,
+        payment_pending: grouped.payment_pending.length,
+        shortlisted: grouped.shortlisted.length,
+        accepted: grouped.accepted.length,
+        pending: grouped.pending.length,
+        rejected: grouped.rejected.length,
+        withdrawn: grouped.withdrawn.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getApplicationsByStatus:", error);
+    return res.status(500).json({
+      message: "An unexpected error occurred while retrieving applications.",
+      error,
     });
   }
 };
