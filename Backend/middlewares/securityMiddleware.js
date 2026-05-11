@@ -1,4 +1,4 @@
-const helmet = require('helmet');
+const helmet = require("helmet");
 
 // Security headers middleware
 exports.securityHeaders = helmet({
@@ -8,7 +8,12 @@ exports.securityHeaders = helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:5000", "http://localhost:5173"],
+      connectSrc: [
+        "'self'",
+        "http://localhost:5000",
+        "http://localhost:5173",
+        "https://*",
+      ],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -21,7 +26,7 @@ exports.securityHeaders = helmet({
     preload: true,
   },
   noSniff: true,
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   xssFilter: true,
 });
 
@@ -54,7 +59,7 @@ exports.rateLimiter = (options = {}) => {
 
     if (record.count >= max) {
       return res.status(429).json({
-        message: 'Too many requests from this IP, please try again later.',
+        message: "Too many requests from this IP, please try again later.",
       });
     }
 
@@ -73,7 +78,10 @@ exports.validateInput = (schema) => {
       const rules = schema[field];
       const value = req.body[field];
 
-      if (rules.required && (value === undefined || value === null || value === '')) {
+      if (
+        rules.required &&
+        (value === undefined || value === null || value === "")
+      ) {
         errors.push(`${field} is required`);
         continue;
       }
@@ -84,7 +92,9 @@ exports.validateInput = (schema) => {
         }
 
         if (rules.minLength && value.length < rules.minLength) {
-          errors.push(`${field} must be at least ${rules.minLength} characters`);
+          errors.push(
+            `${field} must be at least ${rules.minLength} characters`,
+          );
         }
 
         if (rules.maxLength && value.length > rules.maxLength) {
@@ -99,7 +109,7 @@ exports.validateInput = (schema) => {
 
     if (errors.length > 0) {
       return res.status(400).json({
-        message: 'Validation error',
+        message: "Validation error",
         errors,
       });
     }
@@ -111,7 +121,7 @@ exports.validateInput = (schema) => {
 // Sanitize input to prevent XSS
 exports.sanitizeInput = (req, res, next) => {
   const sanitize = (obj) => {
-    if (typeof obj !== 'object' || obj === null) return obj;
+    if (typeof obj !== "object" || obj === null) return obj;
 
     if (Array.isArray(obj)) {
       return obj.map(sanitize);
@@ -119,12 +129,12 @@ exports.sanitizeInput = (req, res, next) => {
 
     const sanitized = {};
     for (const key in obj) {
-      if (typeof obj[key] === 'string') {
+      if (typeof obj[key] === "string") {
         sanitized[key] = obj[key]
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#x27;');
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#x27;");
       } else {
         sanitized[key] = sanitize(obj[key]);
       }
@@ -151,17 +161,17 @@ exports.validateLicenseSubmission = (req, res, next) => {
   const errors = [];
 
   if (!license_name || license_name.trim().length < 3) {
-    errors.push('License name must be at least 3 characters');
+    errors.push("License name must be at least 3 characters");
   }
   if (!license_number || !/^[A-Z0-9-]{5,20}$/i.test(license_number)) {
-    errors.push('License number must be 5-20 alphanumeric characters');
+    errors.push("License number must be 5-20 alphanumeric characters");
   }
   if (!issuing_authority || issuing_authority.trim().length < 3) {
-    errors.push('Issuing authority must be at least 3 characters');
+    errors.push("Issuing authority must be at least 3 characters");
   }
 
   if (errors.length > 0) {
-    return res.status(400).json({ message: 'Validation failed', errors });
+    return res.status(400).json({ message: "Validation failed", errors });
   }
   next();
 };
@@ -169,35 +179,48 @@ exports.validateLicenseSubmission = (req, res, next) => {
 // Admin action validation
 exports.validateAdminAction = (req, res, next) => {
   const { action, admin_note } = req.body;
-  
-  if (!['approve', 'reject'].includes(action)) {
-    return res.status(400).json({ message: 'Invalid action. Must be approve or reject' });
+
+  if (!["approve", "reject"].includes(action)) {
+    return res
+      .status(400)
+      .json({ message: "Invalid action. Must be approve or reject" });
   }
-  
-  if (action === 'reject' && (!admin_note || admin_note.trim().length < 10)) {
-    return res.status(400).json({ message: 'Admin note required for rejection (min 10 characters)' });
+
+  if (action === "reject" && (!admin_note || admin_note.trim().length < 10)) {
+    return res
+      .status(400)
+      .json({
+        message: "Admin note required for rejection (min 10 characters)",
+      });
   }
-  
+
   next();
 };
 
 // File upload security
 exports.validateFileUpload = (req, res, next) => {
   if (!req.file) {
-    return res.status(400).json({ message: 'License document is required' });
+    return res.status(400).json({ message: "License document is required" });
   }
-  
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/jpg",
+    "application/pdf",
+  ];
   const maxSize = 5 * 1024 * 1024; // 5MB
-  
+
   if (!allowedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({ message: 'Only JPEG, PNG, and PDF files allowed' });
+    return res
+      .status(400)
+      .json({ message: "Only JPEG, PNG, and PDF files allowed" });
   }
-  
+
   if (req.file.size > maxSize) {
-    return res.status(400).json({ message: 'File size must be less than 5MB' });
+    return res.status(400).json({ message: "File size must be less than 5MB" });
   }
-  
+
   next();
 };
 
@@ -205,10 +228,12 @@ exports.validateFileUpload = (req, res, next) => {
 exports.auditLog = (action) => {
   return (req, res, next) => {
     const originalSend = res.send;
-    res.send = function(data) {
+    res.send = function (data) {
       // Log admin actions
-      if (req.user && ['admin', 'owner'].includes(req.user.role)) {
-        console.log(`[AUDIT] ${new Date().toISOString()} - User ${req.user.id} (${req.user.role}) performed ${action} - IP: ${req.ip}`);
+      if (req.user && ["admin", "owner"].includes(req.user.role)) {
+        console.log(
+          `[AUDIT] ${new Date().toISOString()} - User ${req.user.id} (${req.user.role}) performed ${action} - IP: ${req.ip}`,
+        );
       }
       originalSend.call(this, data);
     };

@@ -66,7 +66,7 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
       first_name: user.company_name,
       last_name: "user",
       tx_ref,
-      callback_url: `http://localhost:5000/api/payment/verify`,
+      callback_url: `${process.env.API_BASE_URL || "https://etn-backend-deployed-1.onrender.com"}/api/payment/verify`,
     });
 
     const checkout_url = chapaResponse?.data?.checkout_url;
