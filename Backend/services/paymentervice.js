@@ -1,4 +1,4 @@
-const db = require("../config/db").promise();
+const db = require("../config/db");
 const chapa = require("./chapaServices");
 const { v4: uuidv4 } = require("uuid");
 
@@ -15,8 +15,21 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
     }
 
     await connection.beginTransaction();
+    
+    // Get employer_id from user_id
+    const [employerRows] = await connection.query(
+      "SELECT id FROM employers WHERE user_id = ?",
+      [user.id]
+    );
+    
+    if (employerRows.length === 0) {
+      throw new Error("Employer profile not found");
+    }
+    
+    const employer_id = employerRows[0].id;
+    
     const [checkHiredTalent] = await connection.query(
-      "SELECT talent_id FROM applications where jod_id = ? and status = 'accepted'",
+      "SELECT talent_id FROM applications WHERE job_id = ? AND status IN ('shortlisted', 'hired')",
       [job_id],
     );
 
@@ -31,7 +44,7 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
     const sql = "INSERT INTO payments set ?";
     const values = {
       job_id,
-      client_id: user.id,
+      client_id: employer_id,
       amount,
       transaction_id: tx_ref,
       currency,
@@ -42,7 +55,7 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
 
     await connection.query(
       "INSERT INTO escrow (job_id, talent_id , employer_id , amount , currency , status , treansaction_ref) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [job_id, talent_id, user.id, amount, currency, "pending", tx_ref],
+      [job_id, talent_id, employer_id, amount, currency, "pending", tx_ref],
     );
 
     const chapaResponse = await chapa.initializePayment({
@@ -54,13 +67,11 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
       last_name: "user",
       tx_ref,
       callback_url: "http://localhost:5000/payment/verify",
-      return_url: "https://www.google.com/",
     });
 
     const checkout_url = chapaResponse?.data?.checkout_url;
 
     if (!checkout_url) {
-      console.log("Chapa response:", chapaResponse);
       throw new Error("Failed to get checkout URL from Chapa");
     }
 
@@ -68,7 +79,6 @@ exports.createPayment = async (user, currency, amount, job_id, method) => {
 
     return { check_url: checkout_url };
   } catch (error) {
-    console.log(error);
     await connection.rollback();
     throw error;
   } finally {
@@ -134,11 +144,38 @@ exports.verfiyAndUpdateTransaction = async (tx_ref) => {
       [tx_ref],
     );
 
+    // Get talent_id and create a payment record for owner dashboard
+    const [escrowData] = await connection.query(
+      "SELECT talent_id, job_id, amount, currency FROM escrow WHERE treansaction_ref = ?",
+      [tx_ref]
+    );
+
+    if (escrowData.length > 0) {
+      const { talent_id, job_id, amount, currency } = escrowData[0];
+      
+      // Get talent user_id
+      const [talentData] = await connection.query(
+        "SELECT user_id FROM talents WHERE id = ?",
+        [talent_id]
+      );
+
+      if (talentData.length > 0) {
+        const user_id = talentData[0].user_id;
+        
+        // Create payment record for owner dashboard
+        await connection.query(
+          `INSERT INTO owner_payments (talent_id, user_id, job_id, amount, currency, transaction_id, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'completed', NOW())
+           ON DUPLICATE KEY UPDATE status = 'completed', updated_at = NOW()`,
+          [talent_id, user_id, job_id, amount, currency, tx_ref]
+        );
+      }
+    }
+
     await connection.commit();
     return payment;
   } catch (error) {
     connection.rollback();
-    console.log(error);
     throw error;
   } finally {
     connection.release();

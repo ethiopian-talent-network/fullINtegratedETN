@@ -1,8 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const openaiController = require("../controllers/openaiController"); // CommonJS require
+const openaiController = require("../controllers/openaiController");
 
-// Access the .chat function from the required object
+// Generate content (cover letter or proposal)
+router.post("/generate", openaiController.generateContent);
+
+// Improve existing content
+router.post("/improve", openaiController.improveContent);
+
+// Legacy chat endpoint
 router.post("/", openaiController.chat);
 
-module.exports = router; // CommonJS export
+module.exports = router;

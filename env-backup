@@ -1,4 +1,0 @@
-DATABASE = HetWeb
-DATABASE_PASSWORD = bonsa
-DATABASE_USER = root
-DATABASE_HOST = localhost

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ETN</title>
+    <style>
+      /* Prevent flash — applied before CSS loads */
+      html { background-color: #ffffff; color: #0f172a; }
+      html.dark { background-color: #0f1117; color: #f1f5f9; }
+    </style>
+    <script>
+      (function () {
+        var stored = localStorage.getItem("darkMode");
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var isDark = stored !== null ? stored === "true" : prefersDark;
+        document.documentElement.classList.toggle("dark", isDark);
+        document.documentElement.classList.toggle("light", !isDark);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

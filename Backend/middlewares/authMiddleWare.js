@@ -13,6 +13,7 @@ exports.authenticate = (req, res, next) => {
     req.user = decode;
     next();
   } catch (error) {
+    console.error("[AUTH] Token verification failed:", error.message);
     return res.send({msg:"invalid token", error});
   }
 };

@@ -1,4 +1,4 @@
-const db = require("../config/db").promise();
+const db = require("../config/db");
 
 exports.getRecommendedJobs = async (req, res) => {
   try {

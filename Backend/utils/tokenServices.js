@@ -1,4 +1,4 @@
-const db = require("../config/db").promise();
+const db = require("../config/db");
 
 exports.updateMonthlyToken = async (talent_id) => {
   const connection = await db.getConnection();

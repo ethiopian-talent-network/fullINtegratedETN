@@ -17,7 +17,6 @@ const initializePayment = async (data) => {
     );
     return response.data;
   } catch (error) {
-    console.log(error);
     throw new Error(error.response?.data?.message || error.message);
   }
 };
@@ -34,7 +33,6 @@ const verifyPayment = async (tx_ref) => {
     );
     return response.data;
   } catch (error) {
-    console.log(error);
     throw new Error(error.response?.data?.message || error.message);
   }
 };

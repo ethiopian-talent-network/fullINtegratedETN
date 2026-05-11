@@ -1,0 +1,49 @@
+# Root level gitignore for ETN project
+
+# Environment files
+.env
+.env.local
+.env.*.local
+env-backup
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary documentation files
+*_COMPLETE.md
+*_FIX.md
+*_CONFIRMED.md
+HOW_TO_*.md
+NEGOTIATE_*.md
+q-dev-chat-*.md
+
+# Amazon Q rules (if empty)
+.amazonq/rules/d.md
+
+# Cleanup script (after use)
+cleanup.sh
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
